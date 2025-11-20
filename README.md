@@ -1,28 +1,18 @@
-<div align="center">
-  <img src="https://i.imgur.com/XR70Ysm.png" alt="KnowledgeGPT Logo" width="220">
-  <h1>✨ KnowledgeGPT ✨</h1>
-  <p><strong>Your AI-powered knowledge assistant that brings documents to life</strong></p>
-  
-  <p>
-    <a href="#-features"><img src="https://img.shields.io/badge/RAG-Powered-blueviolet?style=for-the-badge" alt="RAG"></a>
-    <a href="#-quick-start"><img src="https://img.shields.io/badge/Easy-Setup-success?style=for-the-badge" alt="Setup"></a>
-    <a href="#-technology-stack"><img src="https://img.shields.io/badge/Claude-AI-ff69b4?style=for-the-badge" alt="Claude"></a>
-    <a href="https://streamlit.io/"><img src="https://img.shields.io/badge/Built_with-Streamlit-FF4B4B?style=for-the-badge" alt="Streamlit"></a>
-  </p>
-  
-  <p>
-    <img src="https://img.shields.io/badge/LangChain-0.1.4-blue" alt="LangChain">
-    <img src="https://img.shields.io/badge/Python-3.9+-green" alt="Python">
-    <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License">
-    <img src="https://img.shields.io/badge/Streamlit-1.31.0-red" alt="Streamlit">
-  </p>
-</div>
+# ✨ KnowledgeGPT ✨
 
-<hr>
+**Your AI-powered knowledge assistant that brings documents to life**
 
-<p align="center">
-  <img src="https://i.imgur.com/XR70Ysm.png" alt="KnowledgeGPT Demo" width="80%">
-</p>
+![RAG](https://img.shields.io/badge/RAG-Powered-blueviolet?style=for-the-badge)
+![Setup](https://img.shields.io/badge/Easy-Setup-success?style=for-the-badge)
+![Claude](https://img.shields.io/badge/Claude-AI-ff69b4?style=for-the-badge)
+![Streamlit](https://img.shields.io/badge/Built_with-Streamlit-FF4B4B?style=for-the-badge)
+
+![LangChain](https://img.shields.io/badge/LangChain-0.1.4-blue)
+![Python](https://img.shields.io/badge/Python-3.9+-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.31.0-red)
+
+---
 
 ## 🚀 Introduction
 
@@ -43,77 +33,29 @@
 
 ## ✨ Features
 
-<table>
-  <tr>
-    <td width="50%">
-      <h3>📄 Universal Document Support</h3>
-      <p>Seamlessly process PDFs, Word documents, TXT files, and Markdown with intelligent text extraction that preserves document structure.</p>
-    </td>
-    <td width="50%">
-      <h3>🧠 Advanced RAG Architecture</h3>
-      <p>Utilizes state-of-the-art retrieval techniques with FAISS vector search for lightning-fast, highly relevant document retrieval.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <h3>💬 Conversational Memory</h3>
-      <p>Maintains context across your conversation with both short-term session memory and long-term persistent memory for more natural interactions.</p>
-    </td>
-    <td width="50%">
-      <h3>🔍 Source Attribution</h3>
-      <p>Every answer includes references to the specific documents and sections used, ensuring transparency and verifiability.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <h3>⚡ Real-time Responses</h3>
-      <p>Streaming response generation provides immediate feedback with token-by-token display for a fluid chat experience.</p>
-    </td>
-    <td width="50%">
-      <h3>🛠️ Customizable Experience</h3>
-      <p>Fine-tune retrieval parameters, model behavior, and interface settings to match your specific use case and preferences.</p>
-    </td>
-  </tr>
-</table>
+### 📄 Universal Document Support
+Seamlessly process PDFs, Word documents, TXT files, and Markdown with intelligent text extraction that preserves document structure.
 
-## 🎬 Live Demo
+### 🧠 Advanced RAG Architecture
+Utilizes state-of-the-art retrieval techniques with FAISS vector search for lightning-fast, highly relevant document retrieval.
 
-<div align="center">
-  <p><i>Upload documents and chat with them instantly</i></p>
-  <img src="https://i.imgur.com/XR70Ysm.png" alt="KnowledgeGPT Demo" width="80%">
-</div>
+### 💬 Conversational Memory
+Maintains context across your conversation with both short-term session memory and long-term persistent memory for more natural interactions.
+
+### 🔍 Source Attribution
+Every answer includes references to the specific documents and sections used, ensuring transparency and verifiability.
+
+### ⚡ Real-time Responses
+Streaming response generation provides immediate feedback with token-by-token display for a fluid chat experience.
+
+### 🛠️ Customizable Experience
+Fine-tune retrieval parameters, model behavior, and interface settings to match your specific use case and preferences.
 
 ## 🛠️ Technology Stack
 
-<table>
-  <tr>
-    <td align="center" width="20%">
-      <img src="https://anthropic.com/images/icons/claude-icon.svg" width="60" height="60"/><br>
-      <strong>Claude AI</strong><br>
-      <small>Advanced reasoning</small>
-    </td>
-    <td align="center" width="20%">
-      <img src="https://python.langchain.com/img/langchain_icon.svg" width="60" height="60"/><br>
-      <strong>LangChain</strong><br>
-      <small>RAG framework</small>
-    </td>
-    <td align="center" width="20%">
-      <img src="https://raw.githubusercontent.com/facebookresearch/faiss/main/faiss-logo.svg" width="60" height="60"/><br>
-      <strong>FAISS</strong><br>
-      <small>Vector search</small>
-    </td>
-    <td align="center" width="20%">
-      <img src="https://streamlit.io/images/brand/streamlit-mark-color.svg" width="60" height="60"/><br>
-      <strong>Streamlit</strong><br>
-      <small>Web interface</small>
-    </td>
-    <td align="center" width="20%">
-      <img src="https://www.svgrepo.com/show/374144/typescript.svg" width="60" height="60"/><br>
-      <strong>Qwen</strong><br>
-      <small>Embeddings</small>
-    </td>
-  </tr>
-</table>
+| 🤖 Claude AI | 🔗 LangChain | 🔎 FAISS | 🌐 Streamlit | 📊 Qwen |
+|:---:|:---:|:---:|:---:|:---:|
+| Advanced reasoning | RAG framework | Vector search | Web interface | Embeddings |
 
 ## 🚀 Quick Start
 
@@ -127,20 +69,20 @@
 <details>
 <summary>📋 Step-by-step instructions</summary>
 
-1. **Clone the repository**
+**1. Clone the repository**
 
 ```bash
 git clone https://github.com/yourusername/knowledgegpt.git
 cd knowledgegpt
 ```
 
-2. **Install dependencies**
+**2. Install dependencies**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Set up environment variables**
+**3. Set up environment variables**
 
 Create a `.env` file in the root directory:
 
@@ -149,13 +91,13 @@ ANTHROPIC_LLM_API_KEY=your_anthropic_api_key
 OPENAI_EMBEDDING_API_KEY=your_openai_api_key
 ```
 
-4. **Run the application**
+**4. Run the application**
 
 ```bash
 streamlit run app/web_chatbot.py
 ```
 
-5. **Access the web interface**
+**5. Access the web interface**
 
 Open your browser and go to `http://localhost:8501`
 
@@ -176,25 +118,14 @@ docker run -p 8501:8501 --env-file .env knowledgegpt
 
 ## 📚 Usage Guide
 
-<table>
-  <tr>
-    <td width="33%">
-      <h3>1️⃣ Upload Documents</h3>
-      <p>Click "Upload New Document" in the sidebar and select your files (PDF, DOCX, TXT, MD).</p>
-      <img src="https://i.imgur.com/XR70Ysm.png" width="100%" alt="Upload Documents">
-    </td>
-    <td width="33%">
-      <h3>2️⃣ Ask Questions</h3>
-      <p>Type your questions in natural language in the chat input field at the bottom.</p>
-      <img src="https://i.imgur.com/XR70Ysm.png" width="100%" alt="Ask Questions">
-    </td>
-    <td width="33%">
-      <h3>3️⃣ Get Insights</h3>
-      <p>Receive detailed answers with reference sources from your documents.</p>
-      <img src="https://i.imgur.com/XR70Ysm.png" width="100%" alt="Get Insights">
-    </td>
-  </tr>
-</table>
+### 1️⃣ Upload Documents
+Click "Upload New Document" in the sidebar and select your files (PDF, DOCX, TXT, MD).
+
+### 2️⃣ Ask Questions
+Type your questions in natural language in the chat input field at the bottom.
+
+### 3️⃣ Get Insights
+Receive detailed answers with reference sources from your documents.
 
 ### 💡 Example Questions
 
@@ -259,23 +190,11 @@ MAX_HISTORY_LENGTH = 20                     # Conversation turns to remember
 
 ## 🔮 Roadmap
 
-<table>
-  <tr>
-    <td>✅ Multi-document support</td>
-    <td>✅ Source attribution</td>
-    <td>✅ Conversational memory</td>
-  </tr>
-  <tr>
-    <td>🔜 Multi-language support</td>
-    <td>🔜 Document comparison</td>
-    <td>🔜 Custom knowledge bases</td>
-  </tr>
-  <tr>
-    <td>🔜 Image/chart analysis</td>
-    <td>🔜 Data visualization</td>
-    <td>🔜 Mobile app</td>
-  </tr>
-</table>
+| Current Features | Coming Soon | Future Plans |
+|:---|:---|:---|
+| ✅ Multi-document support | 🔜 Multi-language support | 🔜 Image/chart analysis |
+| ✅ Source attribution | 🔜 Document comparison | 🔜 Data visualization |
+| ✅ Conversational memory | 🔜 Custom knowledge bases | 🔜 Mobile app |
 
 ## ❓ FAQ
 
@@ -328,11 +247,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-<div align="center">
-  <p>Built with 💙 for the knowledge seekers of the world</p>
-  <p>
-    <a href="https://github.com/yourusername/knowledgegpt/issues">Report Bug</a> •
-    <a href="https://github.com/yourusername/knowledgegpt/issues">Request Feature</a> •
-    <a href="https://github.com/yourusername/knowledgegpt/stargazers">Star Us</a>
-  </p>
-</div>
+**Built with 💙 for the knowledge seekers of the world**
+
+[Report Bug](https://github.com/yourusername/knowledgegpt/issues) • [Request Feature](https://github.com/yourusername/knowledgegpt/issues) • [Star Us](https://github.com/yourusername/knowledgegpt/stargazers)
