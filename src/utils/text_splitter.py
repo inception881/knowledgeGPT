@@ -1,5 +1,5 @@
 """
-文本分割工具
+Text Splitting Utilities
 """
 from langchain_text_splitters import (
     RecursiveCharacterTextSplitter,
@@ -7,11 +7,15 @@ from langchain_text_splitters import (
     TokenTextSplitter
 )
 from src.config import Config
+from src.utils.logging_config import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
 
 def get_recursive_splitter():
     """
-    获取递归字符分割器
-    适用于大多数文本，会尝试在段落、句子等自然边界分割
+    Get recursive character splitter
+    Suitable for most texts, attempts to split at natural boundaries like paragraphs and sentences
     """
     return RecursiveCharacterTextSplitter(
         chunk_size=Config.CHUNK_SIZE,
@@ -22,8 +26,8 @@ def get_recursive_splitter():
 
 def get_character_splitter():
     """
-    获取简单字符分割器
-    适用于简单文本，按字符数分割
+    Get simple character splitter
+    Suitable for simple texts, splits by character count
     """
     return CharacterTextSplitter(
         separator="\n",
@@ -34,11 +38,11 @@ def get_character_splitter():
 
 def get_token_splitter(encoding_name="cl100k_base"):
     """
-    获取基于 Token 的分割器
-    适用于需要精确控制 Token 数量的场景
+    Get token-based splitter
+    Suitable for scenarios requiring precise token count control
     
     Args:
-        encoding_name: 编码名称，默认为 OpenAI 的 cl100k_base
+        encoding_name: Encoding name, defaults to OpenAI's cl100k_base
     """
     return TokenTextSplitter(
         encoding_name=encoding_name,
@@ -48,15 +52,16 @@ def get_token_splitter(encoding_name="cl100k_base"):
 
 def split_text(text, splitter_type="recursive"):
     """
-    分割文本
+    Split text
     
     Args:
-        text: 要分割的文本
-        splitter_type: 分割器类型，可选 "recursive", "character", "token"
+        text: Text to split
+        splitter_type: Splitter type, options: "recursive", "character", "token"
     
     Returns:
-        分割后的文本块列表
+        List of text chunks after splitting
     """
+    logger.info(f"Splitting text using {splitter_type} splitter")
     if splitter_type == "recursive":
         splitter = get_recursive_splitter()
     elif splitter_type == "character":
@@ -64,6 +69,8 @@ def split_text(text, splitter_type="recursive"):
     elif splitter_type == "token":
         splitter = get_token_splitter()
     else:
-        raise ValueError(f"不支持的分割器类型: {splitter_type}")
+        error_msg = f"Unsupported splitter type: {splitter_type}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
     
     return splitter.split_text(text)

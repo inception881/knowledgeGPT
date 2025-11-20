@@ -15,6 +15,10 @@ from langchain_community.document_loaders import (
 )
 from src.config import Config
 from src.utils.text_splitter import get_recursive_splitter
+from src.utils.logging_config import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
 
 # Path to file recording processed document identifiers
 PROCESSED_DOCS_RECORD = Config.PROCESSED_DOCS_RECORD
@@ -81,31 +85,14 @@ class DocumentLoaderService:
             })
         
         # Process into chunks
+        logger.info(f"Processing document: {path.name}")
         chunks = self.text_splitter.split_documents(documents)
+        logger.info(f"Document split into {len(chunks)} chunks")
         return chunks
     
-    def _process_directory(self, directory: Path, skip_processed: bool) -> List[Document]:
-        """
-        Process all supported documents in a directory
-        
-        Args:
-            directory: Directory path
-            skip_processed: Whether to skip already processed documents
-        
-        Returns:
-            List of Document objects (chunked)
-        """
-        all_chunks = []
-        
-        # Recursively find all supported files
-        for file_path in directory.rglob("*"):
-            if file_path.is_file() and file_path.suffix.lower() in self.SUPPORTED_LOADERS:
-                file_chunks = self._process_file(file_path, skip_processed)
-                all_chunks.extend(file_chunks)
-        
-        return all_chunks
-    
-    def _process_file(self, file_path: Path, skip_processed: bool) -> List[Document]:
+
+    from streamlit.runtime.uploaded_file_manager import UploadedFile
+    def _process_file(self, file_path : UploadedFile, skip_processed: bool) -> List[Document]:
         """
         Process a single file
         
@@ -116,24 +103,40 @@ class DocumentLoaderService:
         Returns:
             List of Document objects (chunked)
         """
-        # Check if document has already been processed
-        doc_id = str(file_path)
+        # Use only the filename as the document ID
+        doc_id = file_path.name
         if skip_processed and self._is_document_processed(doc_id):
-            print(f"Skipping already processed file: {file_path.name}")
+            logger.info(f"Skipping already processed file: {doc_id}")
             return []
+        if file_path is None:
+            error_msg = "No upload file provided"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+            
+        # Ensure documents directory exists
+        Config.DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
         
-        print(f"Loading file: {file_path.name}")
+        # Create target file path
+        file_path1 = Config.DOCUMENTS_DIR / file_path.name
+        
+        # Save file
+        with open(file_path1, "wb") as f:
+            f.write(file_path.getbuffer())
+        
+        logger.info(f"✓ Uploaded file saved to: {file_path1}")
+        
+        logger.info(f"Loading file: {file_path1.name}")
         try:
             # Load and process document
-            chunks = self.load_document(str(file_path))
+            chunks = self.load_document(str(file_path1))
             
             # Record processed document
             self._record_processed_document(doc_id)
-            print(f"  ✓ Success: {len(chunks)} chunks")
+            logger.info(f"  ✓ Success: {len(chunks)} chunks")
             
             return chunks
         except Exception as e:
-            print(f"  ✗ Failed: {e}")
+            logger.error(f"  ✗ Failed: {e}")
             return []
     
     def _is_document_processed(self, doc_id: str) -> bool:
@@ -177,36 +180,55 @@ class DocumentLoaderService:
         for i in range(0, len(documents), batch_size):
             batch = documents[i:i+batch_size]
             batches.append(batch)
-            print(f"Created batch {len(batches)}: {len(batch)} documents")
+            logger.info(f"Created batch {len(batches)}: {len(batch)} documents")
         
         return batches
-        
-    def save_uploaded_file(self, uploaded_file) -> Path:
+    def list_all_processed_documents(self) -> List[str]:
         """
-        Save uploaded file to documents directory
+        List all processed documents
         
-        Args:
-            uploaded_file: Streamlit uploaded file object
-            
         Returns:
-            Saved file path
+            List of processed document identifiers
         """
-        if uploaded_file is None:
-            raise ValueError("No upload file provided")
-            
-        # Ensure documents directory exists
-        Config.DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
+        if not PROCESSED_DOCS_RECORD.exists():
+            return []
+        with open(PROCESSED_DOCS_RECORD, "r", encoding="utf-8") as f:
+            processed_ids = f.read().splitlines()
+        return processed_ids
         
-        # Create target file path
-        file_path = Config.DOCUMENTS_DIR / uploaded_file.name
-        
-        # Save file
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        
-        print(f"✓ Uploaded file saved to: {file_path}")
-        return file_path
+    def delete_processed_document(self, doc_id: str) -> None:
+        """
+        Delete a processed document from list of processed documents
+        """
+        if Path(Config.DOCUMENTS_DIR / doc_id).exists():
+            Path(Config.DOCUMENTS_DIR / doc_id).unlink()
+        else:
+            logger.warning(f"Document not found: {doc_id}")
 
+        processed_ids = self.list_all_processed_documents()
+        if doc_id in processed_ids:
+            processed_ids.remove(doc_id)
+        else:
+            logger.warning(f"Document not found in list of processed documents: {doc_id}")
+        with open(PROCESSED_DOCS_RECORD, "w", encoding="utf-8") as f:
+            f.write("\n".join(processed_ids))
+
+    def clear_all_processed_documents(self) -> None:
+        """
+        Delete all processed documents
+        """
+        try:
+            PROCESSED_DOCS_RECORD.open("w").close()
+            logger.info(f"Successfully cleared {PROCESSED_DOCS_RECORD}")
+        except Exception as e:
+            logger.error(f"Failed to clear file contents of {PROCESSED_DOCS_RECORD}: {e}")
+        try:
+            for file in Path(Config.DOCUMENTS_DIR).glob("*"):
+                if file.is_file():
+                    file.unlink(missing_ok=True)
+            logger.info(f"Successfully cleared {Config.DOCUMENTS_DIR}")
+        except Exception as e:
+            logger.error(f"Failed to clear directory {Config.DOCUMENTS_DIR}: {e}")
 # Global singleton instance
 _LOADER_INSTANCE = None
 

@@ -7,6 +7,8 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain.agents import create_agent
 from langchain.tools import BaseTool
 from langchain.agents.middleware import SummarizationMiddleware
+# from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 from typing import List, Dict, Any
 from pathlib import Path
@@ -16,6 +18,10 @@ from src.prompts.templates import PromptTemplate
 from src.chat_model import get_chat_model
 from src.loaders.document_loader import get_document_loader
 from src.vectorstores.faiss_store import get_faiss_vector_store
+from src.utils.logging_config import get_logger
+
+# Initialize logger
+logger = get_logger(__name__)
 
 # Vector store path
 FAISS_INDEX_PATH = Config.FAISS_INDEX_PATH
@@ -82,116 +88,57 @@ class FAISSConversationalRAGChain:
         # Create retrieval tool
         self.retrieval_tool = RetrievalTool(self.retriever)
         
+        logger.info(f"Initializing conversation chain for session: {self.session_id}")
+        import sqlite3
+        
+        for file in Path(Config.SHORT_TERM_MEMORY).rglob("*"):
+            if file.is_file():  
+                file.unlink(missing_ok=True) 
+        conn=sqlite3.connect(str(Config.SHORT_TERM_MEMORY/ f"{self.session_id}.db"), check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL;")
+
+        from src.memory.long_term_memory import retrieve_similar_history_middleware,save_assistant_response_middleware,save_user_messages_middleware,sanitize_dangling_tool_middleware
         # Create agent with middleware for summarization
         self.agent = create_agent(
             model=self.llm,
             tools=[self.retrieval_tool],
             middleware=[
+                sanitize_dangling_tool_middleware,
                 SummarizationMiddleware(
                     model=get_chat_model(model="claude-sonnet-4-5"),
                     max_tokens_before_summary=4000,  # Trigger summarization at 4000 tokens
                     messages_to_keep=20,  # Keep last 20 messages after summary
                 ),
+                # 调整中间件顺序，确保在模型调用前后正确执行
+                retrieve_similar_history_middleware,  # 在模型调用前获取相关历史
+                save_user_messages_middleware,        # 在模型调用前保存用户消息
+                save_assistant_response_middleware    # 在模型调用后保存助手响应
             ],
+            
+            # Use SqliteSaver instead of AsyncSqliteSaver to avoid event loop issues
+            checkpointer = SqliteSaver(conn=conn),
         )
     
-    def call(self, question: str) -> dict:
-        """
-        Call Agent
-        
-        Args:
-            question: User question
-        
-        Returns:
-            Dictionary containing answer and source documents
-        """
-        # Ensure history has at least one message to avoid having only system message
-        if not self.history:
-            # Add initialization message
-            self.history.append({"role": "user", "content": "Initialize conversation"})
-            self.history.append({"role": "assistant", "content": "I'm ready to answer your questions."})
-        
-        # Convert history and current question to messages format
-        messages = [{"role": "system", "content": self.prompt_template}]
-        for msg in self.history:
-            role = msg.get("role", "")
-            content = msg.get("content", "")
-            
-            if role == "user":
-                messages.append({"role": "user", "content": content})
-            elif role == "assistant":
-                messages.append({"role": "assistant", "content": content})
-        
-        # Add current question
-        messages.append({"role": "user", "content": question})
-        
-        # Call Agent with messages format
-        result = self.agent.invoke({"messages": messages})
-        
-        # Result is a dictionary containing messages, last message is AI's answer
-        if isinstance(result, dict) and "messages" in result:
-            # Get all AI messages
-            ai_messages = [msg for msg in result["messages"] if isinstance(msg, AIMessage)]
-            
-            # Get content of last AI message as answer
-            if ai_messages:
-                last_ai_message = ai_messages[-1]
-                answer = last_ai_message.content
-                if isinstance(answer, list):
-                    # If content is a list, extract text parts
-                    text_parts = [part.get("text", "") for part in answer if isinstance(part, dict) and "text" in part]
-                    answer = " ".join(text_parts)
-            else:
-                answer = "Unable to generate an answer."
-        else:
-            # Try other ways to extract answer
-            answer = result.get("answer", str(result))
-        
-        # Get documents used by retrieval tool
-        source_docs = self.retrieval_tool.get_last_docs()
-        
-        # If tool didn't retrieve documents, use retriever directly
-        if not source_docs:
-            source_docs = self.retriever.invoke(question)
-        
-        # Save conversation history
-        self.history.append({"role": "user", "content": question})
-        self.history.append({"role": "assistant", "content": answer})
-        
-        # If history is too long, keep only recent conversations
-        if len(self.history) > Config.MAX_HISTORY_LENGTH * 2:
-            self.history = self.history[-Config.MAX_HISTORY_LENGTH * 2:]
-        
-        print(f"self.history: {self.history}")
-        
-        return {
-            "answer": answer,
-            "sources": [
-                {
-                    "content": doc.page_content,
-                    "metadata": doc.metadata
-                }
-                for doc in source_docs
-            ]
-        }
     
-    def add_documents(self, file_path: Path):
+ 
+    from streamlit.runtime.uploaded_file_manager import UploadedFile
+    def add_documents(self, file_path: UploadedFile):
         """
         Add documents to vector store
         
         Args:
             file_path: File path
         """
-        file_path = self.document_loader.save_uploaded_file(file_path)
+        # file_path = self.document_loader.save_uploaded_file(file_path)
         # Convert string path to Path object
-        path = Path(file_path)
+        # path = Path(file_path)
         
         # Process file
-        chunks = self.document_loader._process_file(path, skip_processed=True)
+        chunks = self.document_loader._process_file(file_path=file_path, skip_processed=True)
         
         if not chunks:
-            print(f"⚠️ File {path.name} did not generate any document chunks after processing")
-            return
+            logger.warning(f"⚠️ File {file_path.name} did not generate any document chunks after processing")
+            return {"message": f"Skipping already processed file:  {file_path.name} "}
         
         # Use FAISS vector store service to add documents
         self.faiss_store.add_documents(chunks)
@@ -199,31 +146,37 @@ class FAISSConversationalRAGChain:
         # Update retriever
         self.retriever = self.faiss_store.get_retriever()
     
-    def clear_memory(self):
-        """Clear memory"""
-        self.history = []
-    
-    def get_history(self) -> list:
-        """Get conversation history - convert to LangChain message objects"""
-        messages = []
-        for msg in self.history:
-            role = msg.get("role", "")
-            content = msg.get("content", "")
-            
-            if role == "user":
-                messages.append(HumanMessage(content=content))
-            elif role == "assistant":
-                messages.append(AIMessage(content=content))
-            elif role == "system":
-                messages.append(SystemMessage(content=content))
+    def  delete_documents(self, doc_id: str):
+        """
+        Delete document from vector store
         
-        return messages
+        Args:
+            doc_id: Document ID
+
+        """
+        self.document_loader.delete_processed_document(doc_id)
+        self.faiss_store.delete_by_source(doc_id)
+    
+    def clear_documents(self):
+        """Clear documents and conversation history"""
+        # Clear documents from knowledge base
+        self.document_loader.clear_all_processed_documents()
+        self.faiss_store.clear()
 
 # Session management
 _sessions = {}
 
 def get_conversational_chain(session_id: str) -> FAISSConversationalRAGChain:
     """Get or create conversation Chain"""
+    import asyncio
+    
+    # Ensure we have an event loop
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
     if session_id not in _sessions:
         _sessions[session_id] = FAISSConversationalRAGChain(session_id)
     return _sessions[session_id]

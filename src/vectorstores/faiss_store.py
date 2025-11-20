@@ -1,8 +1,8 @@
 """
-FAISS 向量存储管理
+FAISS Vector Store Management
 
-该模块提供了对 FAISS 向量存储的统一管理接口，包括创建、加载、更新和查询等功能。
-FAISS 是一个高效的向量相似度搜索库，用于存储文档的向量表示并进行快速检索。
+This module provides a unified management interface for FAISS vector storage, including creation, loading, updating, and querying.
+FAISS is an efficient vector similarity search library used to store document vector representations and perform fast retrieval.
 """
 import uuid
 from pathlib import Path
@@ -17,39 +17,43 @@ from langchain_core.vectorstores import VectorStore
 from src.config import Config
 from src.embedding import get_embeddings, get_embeddings_singleton
 from src.loaders.document_loader import get_document_loader
+from src.utils.logging_config import get_logger
 
-# 向量库存储路径
+# Initialize logger
+logger = get_logger(__name__)
+
+# Vector store path
 FAISS_INDEX_PATH = Config.FAISS_INDEX_PATH
 
-# 确保目录存在
+# Ensure directory exists
 FAISS_INDEX_PATH.mkdir(parents=True, exist_ok=True)
 
 class FAISSVectorStore:
-    """FAISS 向量存储管理类"""
+    """FAISS Vector Store Management Class"""
     
     def __init__(self, embeddings: Optional[Embeddings] = None):
         """
-        初始化 FAISS 向量存储管理器
+        Initialize FAISS vector store manager
         
         Args:
-            embeddings: 嵌入模型，默认使用全局单例
+            embeddings: Embedding model, defaults to global singleton
         """
         self.embeddings = embeddings or get_embeddings_singleton()
         self.vector_store = self._load_or_create_vector_store()
     
     def _load_or_create_vector_store(self) -> FAISS:
         """
-        加载或创建 FAISS 向量存储
+        Load or create FAISS vector store
         
-        如果存在已保存的向量库，则加载；否则创建一个空的向量库。
+        If a saved vector store exists, load it; otherwise create an empty one.
         
         Returns:
-            FAISS 向量存储实例
+            FAISS vector store instance
         """
-        # 检查是否存在已保存的向量库
+        # Check if saved vector store exists
         if FAISS_INDEX_PATH.exists() and any(FAISS_INDEX_PATH.iterdir()):
             try:
-                print(f"✅ 加载已有向量库（路径：{FAISS_INDEX_PATH}）")
+                logger.info(f"✅ Loading existing vector store (path: {FAISS_INDEX_PATH})")
                 vector_store = FAISS.load_local(
                     folder_path=str(FAISS_INDEX_PATH),
                     embeddings=self.embeddings,
@@ -57,10 +61,10 @@ class FAISSVectorStore:
                 )
                 return vector_store
             except Exception as e:
-                print(f"⚠️ 加载向量库失败: {e}，将创建新的向量库")
+                logger.warning(f"⚠️ Failed to load vector store: {e}, will create a new one")
         
-        # 如果没有文档，创建一个空的向量存储
-        print("⚠️ 未找到已有向量库或加载失败，创建空的向量存储")
+        # If no documents, create an empty vector store
+        logger.warning("⚠️ No existing vector store found or loading failed, creating empty vector store")
         vector_store = FAISS.from_texts(
             ["初始化文档"], self.embeddings
         )
@@ -69,66 +73,68 @@ class FAISSVectorStore:
     
     def get_retriever(self, k: int = None):
         """
-        获取检索器
+        Get retriever
         
         Args:
-            k: 检索的文档数量，默认使用配置中的值
+            k: Number of documents to retrieve, defaults to value in configuration
             
         Returns:
-            检索器实例
+            Retriever instance
         """
         search_kwargs = {"k": k or Config.TOP_K}
-        return self.vector_store.as_retriever(search_kwargs=search_kwargs)
+        return self.vector_store.as_retriever(search_type="mmr",search_kwargs=search_kwargs)
     
     def add_documents(self, documents: List[Document], batch_size: int = 10, ids: Optional[List[str]] = None) -> bool:
         """
-        添加文档到向量存储
+        Add documents to vector store
         
         Args:
-            documents: 要添加的文档chunk列表
-            batch_size: 批处理大小
-            ids: 可选的文档ID列表，如果提供，长度必须与documents相同
+            documents: List of document chunks to add
+            batch_size: Batch processing size
+            ids: Optional list of document IDs, if provided, length must match documents
             
         Returns:
-            是否成功添加文档
+            Whether documents were successfully added
         """
         if not documents:
-            print("⚠️ 无文档可添加")
+            logger.warning("⚠️ No documents to add")
             return False
         
-        # 生成文档ID
+        # Generate document IDs
         if ids is None:
-            # 为每个文档生成一个ID，格式为：源文件路径_UUID
+            # Generate an ID for each document, format: source_file_path_UUID
             generated_ids = []
             for doc in documents:
-                source = doc.metadata.get("source", "")
+                source = doc.metadata.get("file_name", "")
                 doc_uuid = str(uuid.uuid4())
                 generated_ids.append(f"{source}_{doc_uuid}")
             ids = generated_ids
         
-        # 确保文档和ID数量一致
+        # Ensure document and ID counts match
         if len(documents) != len(ids):
-            raise ValueError(f"文档数量({len(documents)})与ID数量({len(ids)})不匹配")
+            error_msg = f"Document count ({len(documents)}) does not match ID count ({len(ids)})"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
         
-        # 使用文档加载器服务的批处理功能
+        # Use document loader service's batch processing capability
         loader = get_document_loader()
         batches = loader.batch_process_documents(documents, batch_size)
         id_batches = [ids[i:i+batch_size] for i in range(0, len(ids), batch_size)]
-        print(f"✅ 文档分批完成：共 {len(batches)} 个批次")
+        logger.info(f"✅ Document batching complete: {len(batches)} batches")
         
-        # 向量化并合并到向量库（使用预先分好的批次）
+        # Vectorize and merge into vector store (using pre-divided batches)
         for i, (batch, batch_ids) in enumerate(zip(batches, id_batches)):
             if self.vector_store is None:
                 self.vector_store = FAISS.from_documents(batch, self.embeddings, ids=batch_ids)
             else:
-                # 使用add_documents而不是from_documents和merge_from，以便传递IDs
+                # Use add_documents instead of from_documents and merge_from to pass IDs
                 self.vector_store.add_documents(documents=batch, ids=batch_ids)
-            print(f"✅ 已处理批次 {i+1}/{len(batches)}")
+            logger.info(f"✅ Processed batch {i+1}/{len(batches)}")
         
-        # 保存更新后的向量库到本地
+        # Save updated vector store locally
         if self.vector_store:
             self.vector_store.save_local(str(FAISS_INDEX_PATH))
-            print(f"✅ 向量库更新完成，已保存到：{FAISS_INDEX_PATH}")
+            logger.info(f"✅ Vector store update complete, saved to: {FAISS_INDEX_PATH}")
             return True
         
         return False
@@ -137,40 +143,40 @@ class FAISSVectorStore:
     
     def search(self, query: str, k: int = None) -> List[Document]:
         """
-        搜索相关文档
+        Search for relevant documents
         
         Args:
-            query: 查询文本
-            k: 返回的文档数量，默认使用配置中的值
+            query: Query text
+            k: Number of documents to return, defaults to value in configuration
             
         Returns:
-            相关文档列表
+            List of relevant documents
         """
         return self.vector_store.similarity_search(query, k=k or Config.TOP_K)
     
     def search_with_score(self, query: str, k: int = None) -> List[tuple]:
         """
-        搜索相关文档并返回相似度分数
+        Search for relevant documents and return similarity scores
         
         Args:
-            query: 查询文本
-            k: 返回的文档数量，默认使用配置中的值
+            query: Query text
+            k: Number of documents to return, defaults to value in configuration
             
         Returns:
-            (文档, 分数) 元组列表
+            List of (document, score) tuples
         """
         return self.vector_store.similarity_search_with_score(query, k=k or Config.TOP_K)
     
     def save(self, path: Optional[str] = None) -> None:
         """
-        保存向量库到本地
+        Save vector store locally
         
         Args:
-            path: 保存路径，默认使用配置中的路径
+            path: Save path, defaults to path in configuration
         """
         save_path = path or str(FAISS_INDEX_PATH)
         self.vector_store.save_local(save_path)
-        print(f"✅ 向量库已保存到：{save_path}")
+        logger.info(f"✅ Vector store saved to: {save_path}")
     
     # def load_documents_and_update(self, document_paths: List[str]) -> bool:
     #     """
@@ -197,92 +203,115 @@ class FAISSVectorStore:
     #     # 添加文档到向量库
     #     return self.add_documents(all_docs)
     
+    from langchain_community.vectorstores import FAISS
+
+
+    # 假设 vector_store 是你已加载的 LangChain FAISS 对象
+    # e.g., vector_store = FAISS(...)
+    def clear(self) -> None:
+        # 1) Clear underlying faiss index (memory)
+        import faiss
+        from langchain_community.docstore.in_memory import InMemoryDocstore
+        index: faiss.Index = self.vector_store.index
+        index.reset()  # Clear all vectors (ntotal will become 0)
+
+        # 2) Clear LangChain mappings and docstore (implementation dependent)
+        self.vector_store.index_to_docstore_id = {}   # Clear index->doc id mapping
+        # If there's a docstore, reset to a new empty docstore (example using InMemoryDocstore)
+        try:
+            self.vector_store.docstore = InMemoryDocstore()
+        except Exception:
+            # If reset not possible, can manually delete saved docstore file (method A)
+            pass
+
+        # 3) Save and overwrite locally (overwrite original index file/directory)
+        self.vector_store.save_local(str(FAISS_INDEX_PATH))  # Overwrite previously saved location
+        logger.info("Index has been reset and saved to faiss_index")
     def delete(self, ids: List[str]) -> bool:
         """
-        从向量库中删除指定ID的文档
+        Delete documents with specified IDs from vector store
         
         Args:
-            ids: 要删除的文档ID列表
+            ids: List of document IDs to delete
             
         Returns:
-            是否成功删除
+            Whether deletion was successful
         """
         if not ids:
-            print("⚠️ 未提供要删除的文档ID")
+            logger.warning("⚠️ No document IDs provided for deletion")
             return False
         
         try:
             self.vector_store.delete(ids=ids)
-            # 保存更新后的向量库到本地
+            # Save updated vector store locally
             self.save()
-            print(f"✅ 成功删除 {len(ids)} 个文档")
+            logger.info(f"✅ Successfully deleted {len(ids)} documents")
             return True
         except Exception as e:
-            print(f"⚠️ 删除文档失败: {e}")
+            logger.error(f"⚠️ Failed to delete documents: {e}")
             return False
     
-    def delete_by_source(self, source_paths: List[str]) -> bool:
+    def delete_by_source(self, doc_id:str) -> bool:
         """
-        根据源文件路径删除文档
-        
-        删除所有ID以指定源文件路径开头的文档（忽略UUID部分）
-        
+        Delete documents from a specific source file from vector store
+
         Args:
-            source_paths: 源文件路径列表
-            
+            doc_id: Source filename
+
         Returns:
-            是否成功删除
+            Whether deletion was successful
         """
-        if not source_paths:
-            print("⚠️ 未提供要删除的源文件路径")
+        if not doc_id:
+            logger.warning("⚠️ No source file path provided for deletion")
             return False
         
         try:
-            # 获取所有文档ID
+            # Get all document IDs
             all_ids = list(self.vector_store.index_to_docstore_id.values())
+            logger.debug(f"all_ids: {all_ids}")
             
-            # 找出匹配的ID
+            # Find matching IDs
             ids_to_delete = []
-            for source_path in source_paths:
-                for doc_id in all_ids:
-                    # 检查ID是否以源文件路径开头（格式为source_path_uuid）
-                    if doc_id.startswith(f"{source_path}_"):
-                        ids_to_delete.append(doc_id)
+
+            for id in all_ids:
+                # Ignore UUID part
+                if id.startswith(f"{doc_id}_"):
+                    ids_to_delete.append(id)
             
             if not ids_to_delete:
-                print("⚠️ 未找到匹配的文档")
+                logger.warning("⚠️ No matching documents found")
                 return False
             
-            # 删除匹配的文档
+            # Delete matching documents
             self.vector_store.delete(ids=ids_to_delete)
             
-            # 保存更新后的向量库到本地
+            # Save updated vector store locally
             self.save()
-            print(f"✅ 成功删除 {len(ids_to_delete)} 个文档")
+            logger.info(f"✅ Successfully deleted {len(ids_to_delete)} documents")
             return True
         except Exception as e:
-            print(f"⚠️ 删除文档失败: {e}")
+            logger.error(f"⚠️ Failed to delete documents: {e}")
             return False
     
-    def clear(self) -> None:
-        """清空向量库"""
-        # 创建一个新的空向量库
-        self.vector_store = FAISS.from_texts(
-            ["初始化文档"], self.embeddings
-        )
-        self.save()
-        print("✅ 向量库已清空")
+    # def clear(self) -> None:
+    #     """清空向量库"""
+    #     # 创建一个新的空向量库
+    #     self.vector_store = FAISS.from_texts(
+    #         ["初始化文档"], self.embeddings
+    #     )
+    #     self.save()
+    #     print("✅ 向量库已清空")
 
 
-# 全局单例
+# Global singleton
 _vector_store_instance = None
 
 def get_faiss_vector_store() -> FAISSVectorStore:
     """
-    获取 FAISS 向量存储单例
+    Get FAISS vector store singleton
     
     Returns:
-        FAISSVectorStore 单例实例
+        FAISSVectorStore singleton instance
     """
     global _vector_store_instance
     if _vector_store_instance is None:
